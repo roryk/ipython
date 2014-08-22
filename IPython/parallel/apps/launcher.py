@@ -440,7 +440,7 @@ class MPILauncher(LocalProcessLauncher):
         help="The command line argument to the program."
     )
     n = Integer(1)
-    
+
     def __init__(self, *args, **kwargs):
         # deprecation for old MPIExec names:
         config = kwargs.get('config', {})
@@ -508,7 +508,7 @@ class DeprecatedMPILauncher(object):
         oldname = self.__class__.__name__
         newname = oldname.replace('MPIExec', 'MPI')
         self.log.warn("WARNING: %s name is deprecated, use %s", oldname, newname)
-    
+
 class MPIExecLauncher(MPILauncher, DeprecatedMPILauncher):
     """Deprecated, use MPILauncher"""
     def __init__(self, *args, **kwargs):
@@ -575,7 +575,7 @@ class SSHLauncher(LocalProcessLauncher):
     def find_args(self):
         return self.ssh_cmd + self.ssh_args + [self.location] + \
                list(map(pipes.quote, self.program + self.program_args))
-    
+
     def _send_file(self, local, remote):
         """send a single file"""
         full_remote = "%s:%s" % (self.location, remote)
@@ -592,7 +592,7 @@ class SSHLauncher(LocalProcessLauncher):
         )
         self.log.info("sending %s to %s", local, full_remote)
         check_output(self.scp_cmd + [local, full_remote])
-    
+
     def send_files(self):
         """send our files (called before start)"""
         if not self.to_send:
@@ -616,7 +616,7 @@ class SSHLauncher(LocalProcessLauncher):
         local_dir = os.path.dirname(local)
         ensure_dir_exists(local_dir, 775)
         check_output(self.scp_cmd + [full_remote, local])
-    
+
     def fetch_files(self):
         """fetch remote files (called after start)"""
         if not self.to_fetch:
@@ -629,7 +629,7 @@ class SSHLauncher(LocalProcessLauncher):
             self.hostname = hostname
         if user is not None:
             self.user = user
-        
+
         self.send_files()
         super(SSHLauncher, self).start()
         self.fetch_files()
@@ -641,26 +641,26 @@ class SSHLauncher(LocalProcessLauncher):
             self.process.stdin.flush()
 
 class SSHClusterLauncher(SSHLauncher, ClusterAppMixin):
-    
+
     remote_profile_dir = Unicode('', config=True,
-        help="""The remote profile_dir to use.  
-        
+        help="""The remote profile_dir to use.
+
         If not specified, use calling profile, stripping out possible leading homedir.
         """)
-    
+
     def _profile_dir_changed(self, name, old, new):
         if not self.remote_profile_dir:
             # trigger remote_profile_dir_default logic again,
             # in case it was already triggered before profile_dir was set
             self.remote_profile_dir = self._strip_home(new)
-    
+
     @staticmethod
     def _strip_home(path):
         """turns /home/you/.ipython/profile_foo into .ipython/profile_foo"""
         home = get_home_dir()
         if not home.endswith('/'):
             home = home+'/'
-        
+
         if path.startswith(home):
             return path[len(home):]
         else:
@@ -668,11 +668,11 @@ class SSHClusterLauncher(SSHLauncher, ClusterAppMixin):
 
     def _remote_profile_dir_default(self):
         return self._strip_home(self.profile_dir)
-    
+
     def _cluster_id_changed(self, name, old, new):
         if new:
             raise ValueError("cluster id not supported by SSH launchers")
-    
+
     @property
     def cluster_args(self):
         return ['--profile-dir', self.remote_profile_dir]
@@ -685,11 +685,11 @@ class SSHControllerLauncher(SSHClusterLauncher, ControllerMixin):
 
     def _controller_cmd_default(self):
         return ['ipcontroller']
-    
+
     @property
     def program(self):
         return self.controller_cmd
-    
+
     @property
     def program_args(self):
         return self.cluster_args + self.controller_args
@@ -706,10 +706,10 @@ class SSHEngineLauncher(SSHClusterLauncher, EngineMixin):
     # alias back to *non-configurable* program[_args] for use in find_args()
     # this way all Controller/EngineSetLaunchers have the same form, rather
     # than *some* having `program_args` and others `controller_args`
-    
+
     def _engine_cmd_default(self):
         return ['ipengine']
-    
+
     @property
     def program(self):
         return self.engine_cmd
@@ -717,10 +717,10 @@ class SSHEngineLauncher(SSHClusterLauncher, EngineMixin):
     @property
     def program_args(self):
         return self.cluster_args + self.engine_args
-    
+
     def _to_send_default(self):
         return [
-            (os.path.join(self.profile_dir, 'security', cf), 
+            (os.path.join(self.profile_dir, 'security', cf),
              os.path.join(self.remote_profile_dir, 'security', cf))
             for cf in ('ipcontroller-client.json', 'ipcontroller-engine.json')
         ]
@@ -731,10 +731,10 @@ class SSHEngineSetLauncher(LocalEngineSetLauncher):
     engines = Dict(config=True,
         help="""dict of engines to launch.  This is a dict by hostname of ints,
         corresponding to the number of engines to start on that host.""")
-    
+
     def _engine_cmd_default(self):
         return ['ipengine']
-    
+
     @property
     def engine_count(self):
         """determine engine count from `engines` dict"""
@@ -744,7 +744,7 @@ class SSHEngineSetLauncher(LocalEngineSetLauncher):
                 n,args = n
             count += n
         return count
-    
+
     def start(self, n):
         """Start engines by profile or profile_dir.
         `n` is ignored, and the `engines` config property is used instead.
@@ -785,28 +785,28 @@ class SSHEngineSetLauncher(LocalEngineSetLauncher):
 class SSHProxyEngineSetLauncher(SSHClusterLauncher):
     """Launcher for calling
     `ipcluster engines` on a remote machine.
-    
+
     Requires that remote profile is already configured.
     """
-    
+
     n = Integer()
     ipcluster_cmd = List(['ipcluster'], config=True)
-    
+
     @property
     def program(self):
         return self.ipcluster_cmd + ['engines']
-    
+
     @property
     def program_args(self):
         return ['-n', str(self.n), '--profile-dir', self.remote_profile_dir]
-    
+
     def _to_send_default(self):
         return [
-            (os.path.join(self.profile_dir, 'security', cf), 
+            (os.path.join(self.profile_dir, 'security', cf),
              os.path.join(self.remote_profile_dir, 'security', cf))
             for cf in ('ipcontroller-client.json', 'ipcontroller-engine.json')
     ]
-    
+
     def start(self, n):
         self.n = n
         super(SSHProxyEngineSetLauncher, self).start()
@@ -1054,7 +1054,7 @@ class BatchSystemLauncher(BaseLauncher):
         are set to something other than the default value.
         """
         return dict(n=1, queue=u'', profile_dir=u'', cluster_id=u'')
-    
+
     # the Formatter instance for rendering the templates:
     formatter = Instance(EvalFormatter, (), {})
 
@@ -1149,7 +1149,7 @@ class PBSLauncher(BatchSystemLauncher):
     submit_command = List(['qsub'], config=True,
         help="The PBS submit command ['qsub']")
     delete_command = List(['qdel'], config=True,
-        help="The PBS delete command ['qsub']")
+        help="The PBS delete command ['qdel']")
     job_id_regexp = CRegExp(r'\d+', config=True,
         help="Regular expresion for identifying the job ID [r'\d+']")
 
@@ -1294,15 +1294,15 @@ class HTCondorLauncher(BatchSystemLauncher):
     """A BatchSystemLauncher subclass for HTCondor.
 
     HTCondor requires that we launch the ipengine/ipcontroller scripts rather
-    that the python instance but otherwise is very similar to PBS.  This is because 
-    HTCondor destroys sys.executable when launching remote processes - a launched 
+    that the python instance but otherwise is very similar to PBS.  This is because
+    HTCondor destroys sys.executable when launching remote processes - a launched
     python process depends on sys.executable to effectively evaluate its
     module search paths. Without it, regardless of which python interpreter you launch
     you will get the to built in module search paths.
 
-    We use the ip{cluster, engine, controller} scripts as our executable to circumvent 
-    this - the mechanism of shebanged scripts means that the python binary will be 
-    launched with argv[0] set to the *location of the ip{cluster, engine, controller} 
+    We use the ip{cluster, engine, controller} scripts as our executable to circumvent
+    this - the mechanism of shebanged scripts means that the python binary will be
+    launched with argv[0] set to the *location of the ip{cluster, engine, controller}
     scripts on the remote node*. This means you need to take care that:
 
     a. Your remote nodes have their paths configured correctly, with the ipengine and ipcontroller
